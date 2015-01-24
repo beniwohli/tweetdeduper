@@ -2,3 +2,4 @@ oauthlib==0.7.2
 pymongo==2.7.2
 requests==2.5.1
 requests-oauthlib==0.4.2
+ipython
