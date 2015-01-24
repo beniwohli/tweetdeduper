@@ -112,8 +112,8 @@ def retweet(following):
 
 
 if __name__ == '__main__':
-    client.vd.tweets.ensure_index('url', unique=True)
-    client.vd.tweets.ensure_index('last_update', expireAfterSeconds=72*3600)
+    # client.vd.tweets.ensure_index('url', unique=True)
+    # client.vd.tweets.ensure_index('last_update', expireAfterSeconds=72*3600)
     backfill(following)
     retweet(following)
 
