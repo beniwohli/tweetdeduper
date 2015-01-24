@@ -14,6 +14,7 @@ import requests
 from requests_oauthlib import OAuth1
 
 client = pymongo.MongoClient(os.environ.get('MONGOLAB_URI', None))
+db = client.get_default_database()
 
 auth = OAuth1(
     os.environ['CONSUMER_KEY'],
@@ -44,27 +45,24 @@ def short_urls(tweet):
 
 
 def is_dupe(tweet):
-    db = client.get_default_database()
     urls = short_urls(tweet)
     dupe = False
     for url in urls:
         result = db.vd.tweets.find_one({'url': url})
         if not result:
             result = {'url': url, 'tweet_ids': []}
-        else:
-            dupe = True
         if tweet['id_str'] not in result['tweet_ids']:
             result['tweet_ids'].append(tweet['id_str'])
         if min(map(int, result['tweet_ids'])) == int(tweet['id_str']):
             result['text'] = tweet['text']
-        result['dupes'] = len(result['tweet_ids'])
+        result['dupes'] = len(result['tweet_ids']) - 1
         result['last_update'] = datetime.datetime.now()
         db.vd.tweets.update(
             {'url': url},
             result,
             upsert=True,
         )
-
+        dupe = dupe or len(result['dupes'])
     return dupe
 
 
@@ -113,8 +111,8 @@ def retweet(following):
 
 
 if __name__ == '__main__':
-    # client.vd.tweets.ensure_index('url', unique=True)
-    # client.vd.tweets.ensure_index('last_update', expireAfterSeconds=72*3600)
+    db.vd.tweets.ensure_index('url', unique=True)
+    db.vd.tweets.ensure_index('last_update', expireAfterSeconds=72*3600)
     backfill(following)
     retweet(following)
 
