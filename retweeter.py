@@ -62,7 +62,7 @@ def is_dupe(tweet):
             result,
             upsert=True,
         )
-        dupe = dupe or len(result['dupes'])
+        dupe = dupe or bool(result['dupes'])
     return dupe
 
 
