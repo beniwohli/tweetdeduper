@@ -101,13 +101,14 @@ def retweet(following):
         if line:
             data = json.loads(line.decode('utf-8'))
             if data['user']['screen_name'] == following:
-                if is_dupe(data):
+                if not is_dupe(data):
                     logger.info('Retweeting %s', data['text'])
                     response = requests.post(
                         'https://api.twitter.com/1.1/statuses/retweet/%s.json' % data['id_str'],
                         auth=auth,
                     )
-                    logger.error(response.content.decode('utf-8'))
+                else:
+                    logger.info('Not retweeting duped %s', data['text'])
 
 
 if __name__ == '__main__':
