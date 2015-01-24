@@ -44,10 +44,11 @@ def short_urls(tweet):
 
 
 def is_dupe(tweet):
+    db = client.get_default_database()
     urls = short_urls(tweet)
     dupe = False
     for url in urls:
-        result = client.vd.tweets.find_one({'url': url})
+        result = db.vd.tweets.find_one({'url': url})
         if not result:
             result = {'url': url, 'tweet_ids': []}
         else:
@@ -58,7 +59,7 @@ def is_dupe(tweet):
             result['text'] = tweet['text']
         result['dupes'] = len(result['tweet_ids'])
         result['last_update'] = datetime.datetime.now()
-        client.vd.tweets.update(
+        db.vd.tweets.update(
             {'url': url},
             result,
             upsert=True,
