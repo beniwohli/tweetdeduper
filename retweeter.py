@@ -108,15 +108,25 @@ def retweet(following):
                 data = json.loads(line.decode('utf-8'))
                 if data['user']['screen_name'] == following:
                     if not is_dupe(data):
-                        logger.info('Retweeting %s', data['text'])
+                        logger.info(
+                            'Retweeting %s',
+                            data['text'],
+                            extra={'tweet': data})
                         response = requests.post(
                             'https://api.twitter.com/1.1/statuses/retweet/%s.json' % data['id_str'],
                             auth=auth,
                         )
                     else:
-                        logger.info('Not retweeting duped %s', data['text'])
+                        logger.info(
+                            'Not retweeting duped %s', data['text'],
+                            extra={'tweet': data}
+                        )
             except Exception:
-                logger.error('Error processing %s', line.decode('utf-8'), exc_info=True)
+                logger.error(
+                    'Error processing %s',
+                    line.decode('utf-8'),
+                    exc_info=True,
+                )
 
 
 if __name__ == '__main__':
