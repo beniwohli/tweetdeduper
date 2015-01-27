@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 opbeat_client = Client(app_id=os.environ['OPBEAT_APP_ID'])
 
 logger = logging.getLogger(__name__)
-logger.addHandler(OpbeatHandler())
+logger.addHandler(OpbeatHandler(opbeat_client))
 
 import pymongo
 import requests
