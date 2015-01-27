@@ -4,10 +4,15 @@ import json
 import os
 
 import logging
+from opbeat.base import Client
+from opbeat.handlers.logging import OpbeatHandler
 
 logging.basicConfig(level=logging.INFO)
 
+opbeat_client = Client(app_id=os.environ['OPBEAT_APP_ID'])
+
 logger = logging.getLogger(__name__)
+logger.addHandler(OpbeatHandler())
 
 import pymongo
 import requests
@@ -111,13 +116,15 @@ def retweet(following):
                     else:
                         logger.info('Not retweeting duped %s', data['text'])
             except Exception:
-                logger.error('Error processing %s', line.decode('utf-8'))
+                logger.error('Error processing %s', line.decode('utf-8'), exc_info=True)
 
 
 if __name__ == '__main__':
-    db.vd.tweets.ensure_index('url', unique=True)
-    db.vd.tweets.ensure_index('last_update', expireAfterSeconds=72*3600)
-    backfill(following)
-    retweet(following)
-
-
+    try:
+        db.vd.tweets.ensure_index('url', unique=True)
+        db.vd.tweets.ensure_index('last_update', expireAfterSeconds=72*3600)
+        backfill(following)
+        retweet(following)
+    except Exception:
+        opbeat_client.captureException(exc_info=True)
+        raise
