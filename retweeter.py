@@ -71,11 +71,11 @@ def is_dupe(tweet):
     return dupe
 
 
-def backfill(screen_name, max_tweets=1000):
+def backfill(max_tweets=1000):
     total = 0
     max_id = None
     params = {
-        'q': 'from:' + screen_name,
+        'q': 'from:' + following,
         'count': 100,
     }
     while total < max_tweets:
@@ -94,7 +94,15 @@ def backfill(screen_name, max_tweets=1000):
         params['max_id'] = max_id - 1
 
 
-def retweet(following):
+def retweet(tweet):
+    if os.environ['TWEETIT'] == 'yes':
+        response = requests.post(
+            'https://api.twitter.com/1.1/statuses/retweet/%s.json' % tweet['id_str'],
+            auth=auth,
+        )
+
+
+def listen():
     stream = requests.post(
         'https://stream.twitter.com/1.1/statuses/filter.json',
         data={'follow': screen_name_to_id(following)},
@@ -111,11 +119,9 @@ def retweet(following):
                         logger.info(
                             'Retweeting %s',
                             data['text'],
-                            extra={'tweet': data})
-                        response = requests.post(
-                            'https://api.twitter.com/1.1/statuses/retweet/%s.json' % data['id_str'],
-                            auth=auth,
+                            extra={'tweet': data}
                         )
+                        retweet(data)
                     else:
                         logger.info(
                             'Not retweeting duped %s', data['text'],
@@ -133,8 +139,8 @@ if __name__ == '__main__':
     try:
         db.vd.tweets.ensure_index('url', unique=True)
         db.vd.tweets.ensure_index('last_update', expireAfterSeconds=72*3600)
-        backfill(following)
-        retweet(following)
+        backfill()
+        listen()
     except Exception:
         opbeat_client.captureException(exc_info=True)
         raise
