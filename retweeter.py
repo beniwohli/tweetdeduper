@@ -49,26 +49,30 @@ def short_urls(tweet):
     ]
 
 
-def is_dupe(tweet):
+def get_original_url(tweet):
     urls = short_urls(tweet)
-    dupe = False
     for url in urls:
+        if db.vd.tweets.find_one({'url': url}):
+            return url
+    return None
+
+
+def upsert(tweet, url):
+    if url:
         result = db.vd.tweets.find_one({'url': url})
-        if not result:
-            result = {'url': url, 'tweet_ids': []}
-        if tweet['id_str'] not in result['tweet_ids']:
-            result['tweet_ids'].append(tweet['id_str'])
-        if min(map(int, result['tweet_ids'])) == int(tweet['id_str']):
-            result['text'] = tweet['text']
-        result['dupes'] = len(result['tweet_ids']) - 1
-        result['last_update'] = datetime.datetime.now()
-        db.vd.tweets.update(
-            {'url': url},
-            result,
-            upsert=True,
-        )
-        dupe = dupe or bool(result['dupes'])
-    return dupe
+    else:
+        result = {'url': url, 'tweet_ids': []}
+    if tweet['id_str'] not in result['tweet_ids']:
+        result['tweet_ids'].append(tweet['id_str'])
+    if min(map(int, result['tweet_ids'])) == int(tweet['id_str']):
+        result['text'] = tweet['text']
+    result['dupes'] = len(result['tweet_ids']) - 1
+    result['last_update'] = datetime.datetime.now()
+    db.vd.tweets.update(
+        {'url': url},
+        result,
+        upsert=True,
+    )
 
 
 def backfill(max_tweets=1000):
@@ -87,7 +91,7 @@ def backfill(max_tweets=1000):
         data = json.loads(data.content.decode('utf-8'))
         for item in data['statuses']:
             max_id = int(item['id_str'])
-            is_dupe(item)
+            upsert(item, get_original_url(item))
         total += len(data['statuses'])
         if not len(data['statuses']):
             break
@@ -115,7 +119,8 @@ def listen():
             try:
                 data = json.loads(line.decode('utf-8'))
                 if data['user']['screen_name'] == following:
-                    if not is_dupe(data):
+                    url = get_original_url(data)
+                    if not url:
                         logger.info(
                             'Retweeting %s',
                             data['text'],
@@ -127,6 +132,7 @@ def listen():
                             'Not retweeting duped %s', data['text'],
                             extra={'tweet': data}
                         )
+                    upsert(data, url)
             except Exception:
                 logger.error(
                     'Error processing %s',
