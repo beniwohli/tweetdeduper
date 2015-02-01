@@ -144,7 +144,6 @@ def listen():
 if __name__ == '__main__':
     try:
         db.vd.tweets.ensure_index('url', unique=True)
-        db.vd.tweets.ensure_index('last_update', expireAfterSeconds=72*3600)
         backfill()
         listen()
     except Exception:
