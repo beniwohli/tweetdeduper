@@ -9,10 +9,13 @@ from opbeat.handlers.logging import OpbeatHandler
 
 logging.basicConfig(level=logging.INFO)
 
-opbeat_client = Client(app_id=os.environ['OPBEAT_APP_ID'])
+if os.environ.get('OPBEAT_APP_ID', None):
+    opbeat_client = Client(app_id=os.environ['OPBEAT_APP_ID'])
 
-logger = logging.getLogger(__name__)
-logger.addHandler(OpbeatHandler(opbeat_client))
+    logger = logging.getLogger(__name__)
+    logger.addHandler(OpbeatHandler(opbeat_client))
+else:
+    opbeat_client = None
 
 import pymongo
 import requests
@@ -49,18 +52,21 @@ def short_urls(tweet):
     ]
 
 
-def get_original_url(tweet):
+def is_dupe(tweet):
     urls = short_urls(tweet)
     for url in urls:
         if db.vd.tweets.find_one({'url': url}):
             return url
-    return None
+    return False
 
 
 def upsert(tweet, url):
+    url = url or (short_urls(tweet)[0] if short_urls(tweet) else None)
     if url:
         result = db.vd.tweets.find_one({'url': url})
     else:
+        return
+    if not result:
         result = {'url': url, 'tweet_ids': []}
     if tweet['id_str'] not in result['tweet_ids']:
         result['tweet_ids'].append(tweet['id_str'])
@@ -91,7 +97,7 @@ def backfill(max_tweets=1000):
         data = json.loads(data.content.decode('utf-8'))
         for item in data['statuses']:
             max_id = int(item['id_str'])
-            upsert(item, get_original_url(item))
+            upsert(item, is_dupe(item))
         total += len(data['statuses'])
         if not len(data['statuses']):
             break
@@ -104,6 +110,8 @@ def retweet(tweet):
             'https://api.twitter.com/1.1/statuses/retweet/%s.json' % tweet['id_str'],
             auth=auth,
         )
+    else:
+        logger.debug('FAKE retweeting %s', tweet['text'])
 
 
 def listen():
@@ -119,7 +127,7 @@ def listen():
             try:
                 data = json.loads(line.decode('utf-8'))
                 if data['user']['screen_name'] == following:
-                    url = get_original_url(data)
+                    url = is_dupe(data)
                     if not url:
                         logger.info(
                             'Retweeting %s',
@@ -147,5 +155,6 @@ if __name__ == '__main__':
         backfill()
         listen()
     except Exception:
-        opbeat_client.captureException(exc_info=True)
+        if opbeat_client:
+            opbeat_client.captureException(exc_info=True)
         raise
